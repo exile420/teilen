@@ -1,0 +1,297 @@
+--[[#####   Where did he go? v0.2.1 by ViceVersa   #####]]--
+--[[Draws a line to the location where enemys blink or flash to.]]
+
+--Vars
+local blinkAbilityArray = {}
+
+
+--Functions
+--BlinkAbility-Database
+function fillBlinkAbilityArray()
+    
+    --For each hero in the game
+    for i=0, heroManager.iCount, 1 do
+    
+        --Get the hero object
+        local heroObj = heroManager:getHero(i)
+        
+        --If the object exists and the player is in the enemy team
+        if heroObj and heroObj.team ~= myHero.team then
+            
+            --Detect Flash
+            if heroObj:GetSpellData(SUMMONER_1).name:find("Flash") or heroObj:GetSpellData(SUMMONER_2).name:find("Flash") then
+                table.insert(blinkAbilityArray,{name = "SummonerFlash"..heroObj.charName, maxRange = 400, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            end
+            
+            --Ezreal E
+            if heroObj.charName == "Ezreal" then
+                table.insert(blinkAbilityArray,{name = "EzrealArcaneShift", maxRange = 475, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            
+            --[[Fiora R (ToDo: Draw where she will be after her R, calculate if the start-target is dead)
+            elseif heroObj.charName == "Fiora" then
+                table.insert(blinkAbilityArray,{name = "FioraDance", maxRange = 700, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+           ]]
+            
+            --Kassadin R
+            elseif heroObj.charName == "Kassadin" then
+                table.insert(blinkAbilityArray,{name = "RiftWalk", maxRange = 700, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            
+            --Katarina E
+            elseif heroObj.charName == "Katarina" then
+                table.insert(blinkAbilityArray,{name = "KatarinaE", maxRange = 700, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            
+            --Leblanc W
+            elseif heroObj.charName == "Leblanc" then
+                table.insert(blinkAbilityArray,{name = "LeblancSlide", maxRange = 600, delay = 0.5, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+                table.insert(blinkAbilityArray,{name = "leblancslidereturn", delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+                table.insert(blinkAbilityArray,{name = "LeblancSlideM", maxRange = 600, delay = 0.5, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+                table.insert(blinkAbilityArray,{name = "leblancslidereturnm", delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            
+            --[[Lissandra E (wip)(ToDo: Draw where she blinks to only when she does)
+            elseif heroObj.charName == "Lissandra" then
+                table.insert(blinkAbilityArray,{name= "LissandraE", maxRange = 700, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            ]]
+            
+            --Master Yi Q (ToDo: Draw where he will be after his Q, calculate if the start-target is dead)
+            elseif heroObj.charName == "MasterYi" then
+                table.insert(blinkAbilityArray,{name = "AlphaStrike", maxRange = 600, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            
+            --Shaco Q
+            elseif heroObj.charName == "Shaco" then
+                table.insert(blinkAbilityArray,{name = "Deceive", maxRange = 400, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+
+            --Talon E
+            elseif heroObj.charName == "Talon" then
+                table.insert(blinkAbilityArray,{name = "TalonCutthroat", maxRange = 700, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            
+            --[[Twisted Fate R
+            elseif heroObj.charName == "TwistedFate" then
+                table.insert(blinkAbilityArray,{name = "Destiny", delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+           ]]
+            
+            --Vayne Q (ToDo: Only draw while ult)
+            elseif heroObj.charName == "Vayne" then
+                table.insert(blinkAbilityArray,{name = "VayneTumble", maxRange = 250, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            
+            --[[Zed W (wip)(ToDo: Draw where he blinks when he swaps place with shadow)
+            elseif heroObj.charName == "Zed" then
+                table.insert(blinkAbilityArray,{name= "ZedShadowDash", maxRange = 999, delay = 0, casted = false, timeCasted = 0, startPos = {}, endPos = {}, castingHero = heroObj})
+            ]]
+            
+            end
+            
+        end
+    end
+end
+
+function FindNearestNonWall( x0, y0, z0, maxRadius, precision ) --Thx to gReY <3
+        if not IsWall(D3DXVECTOR3(x0, y0, z0)) then return D3DXVECTOR3(x0, y0, z0) end
+    local radius, gP = 1, precision or 50
+    x0, y0, z0, maxRadius = math.round(x0/gP)*gP, math.round(y0/gP)*gP, math.round(z0/gP)*gP, maxRadius and math.floor(maxRadius/gP) or math.huge
+    local function toGamePos(x, y) return x0+x*gP, y0, z0+y*gP end
+        while radius<=maxRadius do
+        for i = 1, 4 do
+           local p = D3DXVECTOR3(toGamePos((i==2 and radius) or (i==4 and -radius) or 0,(i==1 and radius) or (i==3 and -radius) or 0))
+           if not IsWall(p) then return p end
+        end
+        local f, x, y = 1-radius, 0, radius
+        while x<y-1 do
+            x = x + 1
+            if f < 0 then f = f+1+x+x
+            else y, f = y-1, f+1+x+x-y-y end
+            for i=1, 8 do
+                local w = math.ceil(i/2)%2==0
+                local p = D3DXVECTOR3(toGamePos(((i+1)%2==0 and 1 or -1)*(w and x or y),(i<=4 and 1 or -1)*(w and y or x)))
+                if not IsWall(p) then return p end
+            end
+        end
+        radius = radius + 1
+    end
+end
+    
+    
+--Callbacks
+function OnLoad()
+
+    --Shift-Menu
+    WDHGConfig = scriptConfig("whereDidHeGo","Where did he go?")
+    WDHGConfig:addParam("wallPrediction", "Use Wall Prediction", SCRIPT_PARAM_ONOFF, true)
+    WDHGConfig:addParam("displayTime",    "Display time",    SCRIPT_PARAM_SLICE, 3, 1, 5, 0)
+    WDHGConfig:addParam("drawLine",       "Draw Line",       SCRIPT_PARAM_ONOFF, true)
+    WDHGConfig:addParam("lineColor",      "Line Color",      SCRIPT_PARAM_COLOR, {255,255,0,0})
+    WDHGConfig:addParam("lineWidth",      "Line Width",      SCRIPT_PARAM_SLICE, 3, 1, 5, 0)
+    WDHGConfig:addParam("drawCircle",     "Draw Circle",     SCRIPT_PARAM_ONOFF, true)
+    WDHGConfig:addParam("circleColor",    "Circle Color",    SCRIPT_PARAM_COLOR, {255,255,0,0})
+    WDHGConfig:addParam("circleSize",     "Circle Size",     SCRIPT_PARAM_SLICE, 100, 50, 300, 0)
+    
+    --Fill the array
+    fillBlinkAbilityArray()
+    
+    --Print Load-Message
+    if #blinkAbilityArray > 0 then
+        PrintChat('<font color="#55FF55">Where did he go? >> v0.2.1 loaded!</font>')
+    else
+        PrintChat('<font color="#FFFF55">Where did he go? >> No characters with blink abilitys or flash found!</font>')
+    end
+end
+
+function OnProcessSpell(unit, spell)--When a spell is casted
+    
+    --If the casting unit is in the enemy team and if it is a champion-ability
+    if unit.team ~= myHero.team and string.find(unit.name,"Minion_") == nil and string.find(unit.name,"Turret_") == nil and string.find(spell.name,"Basic") == nil then
+        
+        
+        -- --[[##########  DEBUG  ##########]]--
+        -- PrintChat('<font color="#FF0000">##########################################</font>')
+        -- PrintChat('<font color="#FF0000">'..unit.charName.." >> "..spell.name.."</font>")
+        -- local placeholder = " "
+        -- for i=1, string.len(unit.charName), 1 do placeholder = placeholder.."&nbsp; " end
+        -- --PrintChat('<font color="white">'..placeholder..">> Range: "..spell.range.."</font>")
+        -- PrintChat('<font color="#FF0000">'..placeholder..">> Start: x("..tostring(math.floor(spell.startPos.x))..") y("..tostring(math.floor(spell.startPos.y))..") z("..tostring(math.floor(spell.startPos.z))..")</font>")
+        -- PrintChat('<font color="#FF0000">'..placeholder..">> End:   x("..tostring(math.floor(spell.endPos.x))..") y("..tostring(math.floor(spell.endPos.y))..") z("..tostring(math.floor(spell.endPos.z))..")</font>")            
+        -- --[[##########  DEBUG  ##########]]--
+        
+        
+        --For each skillshot in the array
+        for i=1, #blinkAbilityArray, 1 do
+            
+            --If the casted spell is in the array
+            if spell.name == blinkAbilityArray[i].name or spell.name..unit.charName == blinkAbilityArray[i].name then                
+                
+                --Set casted to true
+                blinkAbilityArray[i].casted = true
+                
+                --Set the time when the ability is casted
+                blinkAbilityArray[i].timeCasted = os.clock()
+                
+                --Set the start position
+                blinkAbilityArray[i].startPos.x = spell.startPos.x
+                blinkAbilityArray[i].startPos.y = spell.startPos.y
+                blinkAbilityArray[i].startPos.z = spell.startPos.z
+                
+                --##### Champion-Specific-Stuff #####--
+                --Leblanc
+                if blinkAbilityArray[i].name == "leblancslidereturn" or blinkAbilityArray[i].name == "leblancslidereturnm" then
+                    
+                    --Cancel the other W-spells if she returns
+                    if blinkAbilityArray[i].name == "leblancslidereturn" then
+                        blinkAbilityArray[i-1].casted = false
+                        blinkAbilityArray[i+1].casted = false
+                        blinkAbilityArray[i+2].casted = false
+                    else
+                        blinkAbilityArray[i-3].casted = false
+                        blinkAbilityArray[i-2].casted = false
+                        blinkAbilityArray[i-1].casted = false
+                    end
+                    
+                    --Set the end position to the start position of her last slide
+                    blinkAbilityArray[i].endPos.x = blinkAbilityArray[i-1].startPos.x
+                    blinkAbilityArray[i].endPos.y = blinkAbilityArray[i-1].startPos.y
+                    blinkAbilityArray[i].endPos.z = blinkAbilityArray[i-1].startPos.z
+                
+                --[[Fiora
+                elseif blinkAbilityArray[i].name == "FioraDance" then
+                    
+                end]]
+                
+                --##### End of Champion-Specific-Stuff #####--
+                
+                
+                --Set the target position
+                else
+                    --Calculate the true position if the enemy clicked
+                    if GetDistance(spell.startPos, spell.endPos) <= blinkAbilityArray[i].maxRange then
+                        --Set the end position
+                        blinkAbilityArray[i].endPos.x = spell.endPos.x
+                        blinkAbilityArray[i].endPos.y = spell.endPos.y
+                        blinkAbilityArray[i].endPos.z = spell.endPos.z
+                    else
+                        local vStartPos = Vector(spell.startPos.x, spell.startPos.y, spell.startPos.z)
+                        local vEndPos = Vector(spell.endPos.x, spell.endPos.y, spell.endPos.z)
+                        local tEndPos = vStartPos - (vStartPos - vEndPos):normalized() * blinkAbilityArray[i].maxRange
+                        
+                        --Check if the position is in a wall and return the position where the player was really flashed to
+                        if WDHGConfig.wallPrediction then
+                            tEndPos = FindNearestNonWall(tEndPos.x, tEndPos.y, tEndPos.z, 1000)
+                        end
+                        
+                        --Set the end position
+                        blinkAbilityArray[i].endPos.x = tEndPos.x
+                        blinkAbilityArray[i].endPos.y = tEndPos.y
+                        blinkAbilityArray[i].endPos.z = tEndPos.z
+                    
+                    end
+                    
+
+                end
+
+                
+                -- --[[##########  DEBUG  ##########]]--
+                -- PrintChat('<font color="#00FF00">'..placeholder..">> Ability found in blinkAbilityArray!</font>")
+                -- PrintChat('<font color="#FFFF00">'..placeholder..">> SettedStart: x("..tostring(math.floor(blinkAbilityArray[i].startPos.x))..") y("..tostring(math.floor(blinkAbilityArray[i].startPos.y))..") z("..tostring(math.floor(blinkAbilityArray[i].startPos.z))..")</font>")
+                -- PrintChat('<font color="#FFFF00">'..placeholder..">> SettedEnd:   x("..tostring(math.floor(blinkAbilityArray[i].endPos.x))..") y("..tostring(math.floor(blinkAbilityArray[i].endPos.y))..") z("..tostring(math.floor(blinkAbilityArray[i].endPos.z))..")</font>")
+                -- --[[##########  DEBUG  ##########]]--
+
+                
+                
+                --Exit loop when match is found
+                break
+                
+            end
+            
+        end
+    end
+end
+
+function OnTick()
+    --Loop through all abilitys
+    for i=1, #blinkAbilityArray, 1 do
+        
+        --If the ability was casted
+        if blinkAbilityArray[i].casted then
+            
+            --If the display time is over stop the drawing
+            if os.clock() > (blinkAbilityArray[i].timeCasted + WDHGConfig.displayTime) then
+                blinkAbilityArray[i].casted = false
+                
+            --If the enemy is visible after the delay set the target to his position
+            elseif blinkAbilityArray[i].castingHero.visible and os.clock() > blinkAbilityArray[i].timeCasted + blinkAbilityArray[i].delay then
+                blinkAbilityArray[i].endPos.x = blinkAbilityArray[i].castingHero.x
+                blinkAbilityArray[i].endPos.y = blinkAbilityArray[i].castingHero.y
+                blinkAbilityArray[i].endPos.z = blinkAbilityArray[i].castingHero.z
+            end
+        end
+    end
+end
+
+function OnDraw()
+    --For each ability in the array
+    for i=1, #blinkAbilityArray, 1 do
+        
+        --If the ability is casted
+        if blinkAbilityArray[i].casted then
+            
+            --Draw Circle at target position if enabled
+            if WDHGConfig.drawCircle then
+                for j=0, 5, 1 do
+                    DrawCircle(blinkAbilityArray[i].endPos.x , blinkAbilityArray[i].endPos.y , blinkAbilityArray[i].endPos.z , WDHGConfig.circleSize+j, RGB(WDHGConfig.circleColor[2],WDHGConfig.circleColor[3],WDHGConfig.circleColor[4]))
+                end
+            end
+            
+            --Draw Line beetween the start and target position if enabled
+            if WDHGConfig.drawLine then
+            
+                --Convert 3D-coordinates to 2D-coordinates for DrawLine
+                local lineStartPos = WorldToScreen(D3DXVECTOR3(blinkAbilityArray[i].startPos.x, blinkAbilityArray[i].startPos.y, blinkAbilityArray[i].startPos.z))
+                local lineEndPos = WorldToScreen(D3DXVECTOR3(blinkAbilityArray[i].endPos.x, blinkAbilityArray[i].endPos.y, blinkAbilityArray[i].endPos.z))
+                
+                --Draw the line
+                DrawLine(lineStartPos.x, lineStartPos.y, lineEndPos.x, lineEndPos.y, WDHGConfig.lineWidth, RGB(WDHGConfig.lineColor[2],WDHGConfig.lineColor[3],WDHGConfig.lineColor[4]))
+            end
+            
+        end
+    end
+end
+
+--UPDATEURL=
+--HASH=72F3F58073836F78B05460AF515645E0
